@@ -98,39 +98,139 @@ Slider = home:CreateSlider({
 local reconnectTime = 0
 local endTime = 0
 local timerRunning = false
+local previousSliderValue = 5
 
 local function restartTimerFromNow()
     if reconnectTime > 0 then
         endTime = os.time() + reconnectTime
         timerRunning = true
+        print("[Timer] Started! Will restart in " .. reconnectTime .. " seconds (" .. (reconnectTime/3600) .. " hours)")
+        print("[Timer] Current time:", os.time())
+        print("[Timer] End time:", endTime)
     else
         timerRunning = false
+        print("[Timer] Stopped (reconnectTime is 0)")
     end
 end
 
+local function adjustTimer(newValue)
+    if timerRunning then
+        local now = os.time()
+        local remainingSeconds = endTime - now
+        
+        local difference = (newValue - previousSliderValue) * 3600
+        local newRemainingSeconds = remainingSeconds + difference
+        
+        if newRemainingSeconds < 0 then
+            newRemainingSeconds = 0
+        end
+        
+        endTime = now + newRemainingSeconds
+        reconnectTime = newValue * 3600
+        
+        local hours = math.floor(newRemainingSeconds / 3600)
+        local minutes = math.floor((newRemainingSeconds % 3600) / 60)
+        print(string.format("[Timer] Adjusted! Time left: %d hours %d minutes", hours, minutes))
+    else
+        reconnectTime = newValue * 3600
+        restartTimerFromNow()
+    end
+    
+    previousSliderValue = newValue
+end
+
+-- Создаем кнопку заранее
+local timeleft = home:CreateButton({
+    Name = "Time left: Calculating...",
+    Callback = function()
+        -- Можно добавить действие при клике, например показать точное время
+        if timerRunning then
+            local now = os.time()
+            local remaining = endTime - now
+            if remaining > 0 then
+                local hours = math.floor(remaining / 3600)
+                local minutes = math.floor((remaining % 3600) / 60)
+                local seconds = remaining % 60
+                print(string.format("[Timer] Exact time left: %d hours, %d minutes, %d seconds", hours, minutes, seconds))
+            end
+        end
+    end,
+})
+
+-- Основной таймер с обновлением кнопки
 task.spawn(function()
     while true do
         task.wait(1)
         if timerRunning and reconnectTime > 0 then
             local now = os.time()
+            local remaining = endTime - now
+            
+            -- Обновляем текст кнопки
+            if remaining > 0 then
+                local hours = math.floor(remaining / 3600)
+                local minutes = math.floor((remaining % 3600) / 60)
+                
+                if hours >= 1 then
+                    -- Показываем часы если >= 1 часа
+                    if minutes > 0 then
+                        timeleft:Set("Time left: " .. hours .. "h " .. minutes .. "m")
+                    else
+                        timeleft:Set("Time left: " .. hours .. "h")
+                    end
+                else
+                    -- Показываем только минуты если < 1 часа
+                    if minutes > 0 then
+                        timeleft:Set("Time left: " .. minutes .. "m")
+                    else
+                        local seconds = remaining % 60
+                        timeleft:Set("Time left: " .. seconds .. "s")
+                    end
+                end
+                
+                -- Логи каждую минуту
+                if remaining % 60 == 0 then
+                    print(string.format("[Timer] Time left: %d hours %d minutes", hours, minutes))
+                end
+            else
+                timeleft:Set("Time left: Restarting...")
+            end
+            
             if now >= endTime then
+                print("[Timer] Time's up! Reconnecting...")
                 TeleportService:Teleport(game.PlaceId, player)
                 break
             end
+        else
+            timeleft:Set("Time left: Timer inactive")
         end
     end
 end)
 
+-- Автореконнект при ошибках/кике
 local function onErrorMessageChanged(errorMessage)
     if errorMessage and errorMessage ~= "" then
+        print("[Auto-Reconnect] Error detected: " .. errorMessage)
         if player then
-            task.wait()
+            task.wait(0.5)
+            print("[Auto-Reconnect] Reconnecting...")
             TeleportService:Teleport(game.PlaceId, player)
         end
     end
 end
 
 GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
+
+-- Обновляем callback слайдера
+Slider.Callback = function(Value)
+    lastSliderValue = Value
+    adjustTimer(Value)
+    SaveCurrentConfig()
+end
+
+-- Запускаем таймер при старте
+previousSliderValue = Slider.CurrentValue
+reconnectTime = Slider.CurrentValue * 3600
+restartTimerFromNow()
 
 DropdownTargetPlayer = alt:CreateDropdown({
     Name = "TargetPlayer",
