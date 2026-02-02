@@ -1,87 +1,127 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
 local Window = Rayfield:CreateWindow({
-   Name = "EzzBss",
-   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
-   LoadingTitle = "EzzBss",
-   LoadingSubtitle = "by Solvibe and Memzad Prime",
-   ShowText = "EzzBss", -- for mobile users to unhide rayfield, change if you'd like
-   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
-
-   ToggleUIKeybind = "K", -- The keybind to toggle the UI visibility (string like "K" or Enum.KeyCode)
-
-   DisableRayfieldPrompts = false,
-   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
-
-   ConfigurationSaving = {
-      Enabled = true,
-      FolderName = nil, -- Create a custom folder for your hub/game
-      FileName = "Preset 1"
-   },
-
-   Discord = {
-      Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
-      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
-      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
-   },
-
-   KeySystem = false, -- Set this to true to use our key system
-   KeySettings = {
-      Title = "Untitled",
-      Subtitle = "Key System",
-      Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
-      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
-      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
-      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
-      Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
-   }
+    Name = "EzzBss",
+    Icon = 0,
+    LoadingTitle = "EzzBss",
+    LoadingSubtitle = "by Solvibe and Memzad Prime",
+    ShowText = "EzzBss",
+    Theme = "Default",
+    ToggleUIKeybind = "K",
+    DisableRayfieldPrompts = false,
+    DisableBuildWarnings = false,
+    ConfigurationSaving = {
+        Enabled = false,
+        FolderName = "EzzBss",
+        FileName = "Preset 1"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "noinvitelink",
+        RememberJoins = true
+    },
+    KeySystem = false,
+    KeySettings = {
+        Title = "Untitled",
+        Subtitle = "Key System",
+        Note = "No method of obtaining the key is provided",
+        FileName = "Key",
+        SaveKey = true,
+        GrabKeyFromSite = false,
+        Key = {"Hello"}
+    }
 })
 
-local home = Window:CreateTab("Home", 127099021069839) -- Title, Image
-local alt = Window:CreateTab("Alt", 95949997618327)
+local home   = Window:CreateTab("Home", 127099021069839)
+local alt    = Window:CreateTab("Alt", 95949997618327)
 local config = Window:CreateTab("Config", 102970103256222)
 
-local Slider = home:CreateSlider({
-   Name = "Slider Example",
-   Range = {1, 24},
-   Increment = 1,
-   Suffix = "Restart time",
-   CurrentValue = 10,
-   Flag = "RestartTimeSlider", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
-   Callback = function(Value)
-   -- The function that takes place when the slider changes
-   -- The variable (Value) is a number which correlates to the value the slider is currently at
-   end,
-})
-
-local Players = game:GetService("Players")
+local Players         = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
+local HttpService     = game:GetService("HttpService")
+local GuiService      = game:GetService("GuiService")
+
 local player = Players.LocalPlayer
+
 local targetPlayerName = nil
-local isTargetEnabled = false
+local isTargetEnabled  = false
 
 local function rejoinSelf()
     TeleportService:Teleport(game.PlaceId, player)
 end
 
-local DropdownTargetPlayer = alt:CreateDropdown({
+local Slider
+local DropdownTargetPlayer
+local ToggleTargetPlayer
+
+Slider = home:CreateSlider({
+    Name = "Restart Time",
+    Range = {1, 24},
+    Increment = 1,
+    Suffix = "Hours",
+    CurrentValue = 5,
+    Flag = "RestartTimeSlider",
+    Callback = function(Value) end,
+})
+
+local reconnectTime = 0
+local endTime = 0
+local timerRunning = false
+
+local function restartTimerFromNow()
+    if reconnectTime > 0 then
+        endTime = os.time() + reconnectTime
+        timerRunning = true
+    else
+        timerRunning = false
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if timerRunning and reconnectTime > 0 then
+            local now = os.time()
+            if now >= endTime then
+                TeleportService:Teleport(game.PlaceId, player)
+                break
+            end
+        end
+    end
+end)
+
+Slider.Callback = function(Value)
+    lastSliderValue = Value
+    reconnectTime = Value * 3600
+    restartTimerFromNow()
+    SaveCurrentConfig()
+end
+
+local function onErrorMessageChanged(errorMessage)
+    if errorMessage and errorMessage ~= "" then
+        if player then
+            task.wait()
+            TeleportService:Teleport(game.PlaceId, player)
+        end
+    end
+end
+
+GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
+
+DropdownTargetPlayer = alt:CreateDropdown({
     Name = "TargetPlayer",
     Options = {},
     CurrentOption = {""},
     MultipleOptions = false,
     Flag = "PlayerInServer",
-    Callback = function(Options)
-        targetPlayerName = Options[1]
-    end,
+    Callback = function(Options) end,
 })
 
-local ToggleTargetPlayer = alt:CreateToggle({
+ToggleTargetPlayer = alt:CreateToggle({
     Name = "Target Player",
     CurrentValue = false,
     Flag = "ToggleRestartAlt",
-    Callback = function(Value)
-        isTargetEnabled = Value
-    end,
+    Callback = function(Value) end,
 })
 
 local function updatePlayers()
@@ -98,17 +138,14 @@ updatePlayers()
 Players.PlayerAdded:Connect(updatePlayers)
 Players.PlayerRemoving:Connect(function(removedPlayer)
     updatePlayers()
-    
     if isTargetEnabled and removedPlayer.Name == targetPlayerName then
-        spawn(function()
-            rejoinSelf()  -- Только ТЫ перезаходишь
+        task.spawn(function()
+            rejoinSelf()
         end)
     end
 end)
-local HttpService = game:GetService("HttpService")
 
-local configFolder = "workspace\\Rayfield\\Configurations"
-
+local configFolder = "EzzBss"
 if not isfolder(configFolder) then
     makefolder(configFolder)
 end
@@ -127,13 +164,11 @@ local function getConfigFiles()
     return files
 end
 
--- Жёстко ищем МАКСИМАЛЬНЫЙ номер среди всех "Preset N"
 local function getNextPresetName()
     local maxIndex = 0
     local files = getConfigFiles()
     for _, name in ipairs(files) do
-        local n = name:match("^Preset (%d+)$")
-        n = tonumber(n)
+        local n = tonumber(name:match("^Preset (%d+)$"))
         if n and n > maxIndex then
             maxIndex = n
         end
@@ -142,8 +177,59 @@ local function getNextPresetName()
 end
 
 local selectedConfig = nil
+local DropdownConfig
 
-local DropdownConfig = config:CreateDropdown({
+local lastSliderValue = Slider.CurrentValue or 5
+
+local lastUsedFile = configFolder .. "\\last_used.txt"
+
+local function saveLastUsedPresetName()
+    if selectedConfig then
+        writefile(lastUsedFile, selectedConfig)
+    end
+end
+
+local function loadLastUsedPresetName()
+    if isfile(lastUsedFile) then
+        local name = readfile(lastUsedFile)
+        if name ~= "" then
+            return name
+        end
+    end
+    return nil
+end
+
+local function getCurrentConfigTable()
+    return {
+        RestartTimeSlider = lastSliderValue,
+        PlayerInServer    = {targetPlayerName or ""},
+        ToggleRestartAlt  = isTargetEnabled,
+    }
+end
+
+function SaveCurrentConfig()
+    if not selectedConfig then return end
+    local filePath = configFolder .. "\\" .. selectedConfig .. ".rfld"
+    local data = getCurrentConfigTable()
+    writefile(filePath, HttpService:JSONEncode(data))
+end
+
+Slider.Callback = function(Value)
+    lastSliderValue = Value
+    SaveCurrentConfig()
+end
+
+DropdownTargetPlayer.Callback = function(Options)
+    targetPlayerName = Options[1]
+    SaveCurrentConfig()
+end
+
+ToggleTargetPlayer.Callback = function(Value)
+    isTargetEnabled = Value
+    SaveCurrentConfig()
+end
+
+DropdownConfig = config:CreateDropdown({
     Name = "Select Config",
     Options = getConfigFiles(),
     CurrentOption = {""},
@@ -151,8 +237,17 @@ local DropdownConfig = config:CreateDropdown({
     Flag = "Config",
     Callback = function(Options)
         selectedConfig = Options[1]
+        saveLastUsedPresetName()
     end,
 })
+
+local function makeDefaultConfig()
+    return {
+        RestartTimeSlider = 5,
+        PlayerInServer    = {""},
+        ToggleRestartAlt  = false,
+    }
+end
 
 local ButtonConfigCreate = config:CreateButton({
     Name = "Create Config",
@@ -160,12 +255,29 @@ local ButtonConfigCreate = config:CreateButton({
         local presetName = getNextPresetName()
         local filePath = configFolder .. "\\" .. presetName .. ".rfld"
 
-        writefile(filePath, HttpService:JSONEncode({}))
+        local data = makeDefaultConfig()
+        writefile(filePath, HttpService:JSONEncode(data))
 
         local opts = getConfigFiles()
         DropdownConfig:Refresh(opts, true)
         DropdownConfig:Set({presetName})
         selectedConfig = presetName
+        saveLastUsedPresetName()
+
+        if Slider and Slider.Set then
+            Slider:Set(data.RestartTimeSlider)
+            lastSliderValue = data.RestartTimeSlider
+        end
+        if DropdownTargetPlayer and DropdownTargetPlayer.Set then
+            DropdownTargetPlayer:Set(data.PlayerInServer)
+            targetPlayerName = data.PlayerInServer[1] or ""
+        end
+        if ToggleTargetPlayer and ToggleTargetPlayer.Set then
+            ToggleTargetPlayer:Set(data.ToggleRestartAlt)
+            isTargetEnabled = data.ToggleRestartAlt
+        end
+
+        SaveCurrentConfig()
     end,
 })
 
@@ -179,5 +291,58 @@ local ButtonConfig = config:CreateButton({
 
         local content = readfile(filePath)
         local data = HttpService:JSONDecode(content)
+
+        if data.RestartTimeSlider and Slider and Slider.Set then
+            Slider:Set(data.RestartTimeSlider)
+            lastSliderValue = data.RestartTimeSlider
+        end
+
+        if data.PlayerInServer and data.PlayerInServer[1] and DropdownTargetPlayer and DropdownTargetPlayer.Set then
+            DropdownTargetPlayer:Set(data.PlayerInServer)
+            targetPlayerName = data.PlayerInServer[1]
+        end
+
+        if data.ToggleRestartAlt ~= nil and ToggleTargetPlayer and ToggleTargetPlayer.Set then
+            ToggleTargetPlayer:Set(data.ToggleRestartAlt)
+            isTargetEnabled = data.ToggleRestartAlt
+        end
+
+        SaveCurrentConfig()
     end,
 })
+
+local lastName = loadLastUsedPresetName()
+if lastName then
+    local opts = getConfigFiles()
+    for _, name in ipairs(opts) do
+        if name == lastName then
+            selectedConfig = lastName
+            if DropdownConfig and DropdownConfig.Set then
+                DropdownConfig:Set({lastName})
+            end
+
+            local filePath = configFolder .. "\\" .. lastName .. ".rfld"
+            if isfile(filePath) then
+                local content = readfile(filePath)
+                local data = HttpService:JSONDecode(content)
+
+                if data.RestartTimeSlider and Slider and Slider.Set then
+                    Slider:Set(data.RestartTimeSlider)
+                    lastSliderValue = data.RestartTimeSlider
+                end
+
+                if data.PlayerInServer and data.PlayerInServer[1] and DropdownTargetPlayer and DropdownTargetPlayer.Set then
+                    DropdownTargetPlayer:Set(data.PlayerInServer)
+                    targetPlayerName = data.PlayerInServer[1]
+                end
+
+                if data.ToggleRestartAlt ~= nil and ToggleTargetPlayer and ToggleTargetPlayer.Set then
+                    ToggleTargetPlayer:Set(data.ToggleRestartAlt)
+                    isTargetEnabled = data.ToggleRestartAlt
+                end
+            end
+
+            break
+        end
+    end
+end
