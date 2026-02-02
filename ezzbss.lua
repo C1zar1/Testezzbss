@@ -8,7 +8,7 @@ local Window = Rayfield:CreateWindow({
     ShowText = "EzzBss",
     Theme = "Default",
     ToggleUIKeybind = "K",
-    DisableRayfieldPrompts = false,
+    DisableRayfieldPrompts = true,
     DisableBuildWarnings = false,
     ConfigurationSaving = {
         Enabled = false,
@@ -42,6 +42,7 @@ local HttpService     = game:GetService("HttpService")
 local GuiService      = game:GetService("GuiService")
 
 local player = Players.LocalPlayer
+local userId = tostring(player.UserId)
 
 local targetPlayerName = nil
 local isTargetEnabled  = false
@@ -89,13 +90,6 @@ task.spawn(function()
         end
     end
 end)
-
-Slider.Callback = function(Value)
-    lastSliderValue = Value
-    reconnectTime = Value * 3600
-    restartTimerFromNow()
-    SaveCurrentConfig()
-end
 
 local function onErrorMessageChanged(errorMessage)
     if errorMessage and errorMessage ~= "" then
@@ -181,7 +175,7 @@ local DropdownConfig
 
 local lastSliderValue = Slider.CurrentValue or 5
 
-local lastUsedFile = configFolder .. "\\last_used.txt"
+local lastUsedFile = configFolder .. "\\last_used_" .. userId .. ".txt"
 
 local function saveLastUsedPresetName()
     if selectedConfig then
@@ -216,6 +210,8 @@ end
 
 Slider.Callback = function(Value)
     lastSliderValue = Value
+    reconnectTime = Value * 3600
+    restartTimerFromNow()
     SaveCurrentConfig()
 end
 
@@ -311,38 +307,72 @@ local ButtonConfig = config:CreateButton({
     end,
 })
 
+local function applyConfigByName(name)
+    local filePath = configFolder .. "\\" .. name .. ".rfld"
+    if not isfile(filePath) then return end
+
+    selectedConfig = name
+    if DropdownConfig and DropdownConfig.Set then
+        DropdownConfig:Set({name})
+    end
+    saveLastUsedPresetName()
+
+    local content = readfile(filePath)
+    local data = HttpService:JSONDecode(content)
+
+    if data.RestartTimeSlider and Slider and Slider.Set then
+        Slider:Set(data.RestartTimeSlider)
+        lastSliderValue = data.RestartTimeSlider
+    end
+
+    if data.PlayerInServer and data.PlayerInServer[1] and DropdownTargetPlayer and DropdownTargetPlayer.Set then
+        DropdownTargetPlayer:Set(data.PlayerInServer)
+        targetPlayerName = data.PlayerInServer[1]
+    end
+
+    if data.ToggleRestartAlt ~= nil and ToggleTargetPlayer and ToggleTargetPlayer.Set then
+        ToggleTargetPlayer:Set(data.ToggleRestartAlt)
+        isTargetEnabled = data.ToggleRestartAlt
+    end
+end
+
+local function ensureDefaultConfig()
+    local files = getConfigFiles()
+    if #files == 0 then
+        local presetName = "Preset 1"
+        local filePath = configFolder .. "\\" .. presetName .. ".rfld"
+        local data = makeDefaultConfig()
+        writefile(filePath, HttpService:JSONEncode(data))
+
+        local opts = getConfigFiles()
+        DropdownConfig:Refresh(opts, true)
+        DropdownConfig:Set({presetName})
+        selectedConfig = presetName
+        saveLastUsedPresetName()
+        applyConfigByName(presetName)
+    else
+        DropdownConfig:Refresh(files, true)
+    end
+end
+
+ensureDefaultConfig()
+
+local filesNow = getConfigFiles()
 local lastName = loadLastUsedPresetName()
+
 if lastName then
-    local opts = getConfigFiles()
-    for _, name in ipairs(opts) do
+    local exists = false
+    for _, name in ipairs(filesNow) do
         if name == lastName then
-            selectedConfig = lastName
-            if DropdownConfig and DropdownConfig.Set then
-                DropdownConfig:Set({lastName})
-            end
-
-            local filePath = configFolder .. "\\" .. lastName .. ".rfld"
-            if isfile(filePath) then
-                local content = readfile(filePath)
-                local data = HttpService:JSONDecode(content)
-
-                if data.RestartTimeSlider and Slider and Slider.Set then
-                    Slider:Set(data.RestartTimeSlider)
-                    lastSliderValue = data.RestartTimeSlider
-                end
-
-                if data.PlayerInServer and data.PlayerInServer[1] and DropdownTargetPlayer and DropdownTargetPlayer.Set then
-                    DropdownTargetPlayer:Set(data.PlayerInServer)
-                    targetPlayerName = data.PlayerInServer[1]
-                end
-
-                if data.ToggleRestartAlt ~= nil and ToggleTargetPlayer and ToggleTargetPlayer.Set then
-                    ToggleTargetPlayer:Set(data.ToggleRestartAlt)
-                    isTargetEnabled = data.ToggleRestartAlt
-                end
-            end
-
+            exists = true
             break
         end
     end
+    if exists then
+        applyConfigByName(lastName)
+    else
+        applyConfigByName("Preset 1")
+    end
+else
+    applyConfigByName("Preset 1")
 end
