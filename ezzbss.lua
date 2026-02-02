@@ -140,9 +140,13 @@ Players.PlayerRemoving:Connect(function(removedPlayer)
 end)
 
 local configFolder = "EzzBss"
-if not isfolder(configFolder) then
-    makefolder(configFolder)
-end
+
+pcall(function()
+    if not isfolder(configFolder) then
+        makefolder(configFolder)
+    end
+end)
+
 
 local function getConfigFiles()
     local files = {}
