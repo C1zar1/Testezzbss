@@ -1,168 +1,183 @@
-local GuiService = game:GetService("GuiService")
-local UIS = game:GetService("UserInputService")
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Window = Rayfield:CreateWindow({
+   Name = "EzzBss",
+   Icon = 0, -- Icon in Topbar. Can use Lucide Icons (string) or Roblox Image (number). 0 to use no icon (default).
+   LoadingTitle = "EzzBss",
+   LoadingSubtitle = "by Solvibe and Memzad Prime",
+   ShowText = "EzzBss", -- for mobile users to unhide rayfield, change if you'd like
+   Theme = "Default", -- Check https://docs.sirius.menu/rayfield/configuration/themes
+
+   ToggleUIKeybind = "K", -- The keybind to toggle the UI visibility (string like "K" or Enum.KeyCode)
+
+   DisableRayfieldPrompts = false,
+   DisableBuildWarnings = false, -- Prevents Rayfield from warning when the script has a version mismatch with the interface
+
+   ConfigurationSaving = {
+      Enabled = true,
+      FolderName = nil, -- Create a custom folder for your hub/game
+      FileName = "Preset 1"
+   },
+
+   Discord = {
+      Enabled = false, -- Prompt the user to join your Discord server if their executor supports it
+      Invite = "noinvitelink", -- The Discord invite code, do not include discord.gg/. E.g. discord.gg/ ABCD would be ABCD
+      RememberJoins = true -- Set this to false to make them join the discord every time they load it up
+   },
+
+   KeySystem = false, -- Set this to true to use our key system
+   KeySettings = {
+      Title = "Untitled",
+      Subtitle = "Key System",
+      Note = "No method of obtaining the key is provided", -- Use this to tell the user how to get a key
+      FileName = "Key", -- It is recommended to use something unique as other scripts using Rayfield may overwrite your key file
+      SaveKey = true, -- The user's key will be saved, but if you change the key, they will be unable to use your script
+      GrabKeyFromSite = false, -- If this is true, set Key below to the RAW site you would like Rayfield to get the key from
+      Key = {"Hello"} -- List of keys that will be accepted by the system, can be RAW file links (pastebin, github etc) or simple strings ("hello","key22")
+   }
+})
+
+local home = Window:CreateTab("Home", 127099021069839) -- Title, Image
+local alt = Window:CreateTab("Alt", 95949997618327)
+local config = Window:CreateTab("Config", 102970103256222)
+
+local Slider = home:CreateSlider({
+   Name = "Slider Example",
+   Range = {1, 24},
+   Increment = 1,
+   Suffix = "Restart time",
+   CurrentValue = 10,
+   Flag = "RestartTimeSlider", -- A flag is the identifier for the configuration file, make sure every element has a different flag if you're using configuration saving to ensure no overlaps
+   Callback = function(Value)
+   -- The function that takes place when the slider changes
+   -- The variable (Value) is a number which correlates to the value the slider is currently at
+   end,
+})
+
 local Players = game:GetService("Players")
 local TeleportService = game:GetService("TeleportService")
-
-
 local player = Players.LocalPlayer
-local PlayerGui = player:WaitForChild("PlayerGui")
+local targetPlayerName = nil
+local isTargetEnabled = false
 
-local ScreenGui = Instance.new("ScreenGui", PlayerGui)
-ScreenGui.Name = "ezzbss"
-
-local ImageButton = Instance.new("ImageButton", ScreenGui)
-ImageButton.Size = UDim2.new(0,60,0,60)
-ImageButton.Position = UDim2.new(0.893,0,0.464,0)
-ImageButton.Image = "rbxassetid://91356972133906"
-ImageButton.Visible = false
-
-local ContentProvider = game:GetService("ContentProvider")
-ContentProvider:PreloadAsync({ImageButton}, function()
-    ImageButton.Visible = true 
-end)
-
-local UiCorner1 = Instance.new("UICorner", ImageButton)
-
-local frame = Instance.new("Frame", ScreenGui)
-frame.Size = UDim2.new(0,241,0,78)
-frame.Position = UDim2.new(0.406,0,0.453,0)
-frame.BackgroundColor3 = Color3.fromRGB(39, 39, 39)
-frame.Visible = false
-
-local UICorner2 = Instance.new("UICorner", frame)
-
-local textframe = Instance.new("Frame", frame)
-textframe.Size = UDim2.new(0,200,0,27)
-textframe.Position = UDim2.new(0.087,0,0.322,0)
-textframe.BackgroundColor3 = Color3.fromRGB(85, 85, 85)
-
-local UICorner3 = Instance.new("UICorner", textframe)
-
-local TextLabel = Instance.new("TextLabel", textframe)
-TextLabel.Size = UDim2.new(0,100,0,27)
-TextLabel.Text = "Restart time:"
-TextLabel.TextColor3 = Color3.fromRGB(0,0,0)
-TextLabel.TextSize = 10
-TextLabel.BackgroundTransparency = 1
-
-local TextBox = Instance.new("TextBox", textframe)
-TextBox.Size = UDim2.new(0,71,0,27)
-TextBox.Position = UDim2.new(0.607,0,-0.012,0)
-TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextBox.PlaceholderText = "0(hours)"
-TextBox.TextTruncate = Enum.TextTruncate.AtEnd
-TextBox.TextXAlignment = Enum.TextXAlignment.Right
-TextBox.BackgroundTransparency = 1
-TextBox.TextSize = 10
-TextBox.Text = "5"
-
-ImageButton.MouseButton1Click:Connect(function()
-	if frame.Visible == false then
-		frame.Visible = true
-	else
-		frame.Visible = false
-	end
-end)
-
-local reconnectTime = 0 
-local timerStart = 0 
-
-TextBox:GetPropertyChangedSignal("Text"):Connect(function()
-	local newHours = tonumber(TextBox.Text) or 0
-	reconnectTime = newHours * 3600 
-
-	local now = os.time()
-	local elapsed = now - timerStart
-
-	if elapsed >= reconnectTime and reconnectTime > 0 then
-		TeleportService:Teleport(game.PlaceId)
-	end
-end)
-
-task.spawn(function()
-	timerStart = os.time()
-
-	while true do
-		task.wait(1) 
-
-		local now = os.time()
-		local elapsed = now - timerStart
-
-
-		if elapsed >= reconnectTime and reconnectTime > 0 then
-			TeleportService:Teleport(game.PlaceId)
-			break
-		end
-	end
-end)
-
-local function onErrorMessageChanged(errorMessage)
-	if errorMessage and errorMessage ~= "" then
-		print("Error detected: " .. errorMessage)
-
-		if player then
-			wait()
-			TeleportService:Teleport(game.PlaceId, player)
-		end
-	end
+local function rejoinSelf()
+    TeleportService:Teleport(game.PlaceId, player)
 end
 
-GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
+local DropdownTargetPlayer = alt:CreateDropdown({
+    Name = "TargetPlayer",
+    Options = {},
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Flag = "PlayerInServer",
+    Callback = function(Options)
+        targetPlayerName = Options[1]
+    end,
+})
 
-local UIS = game:GetService("UserInputService")
-local function makeFrameDraggable()
-	local dragging = false
-	local dragStart = nil
-	local startPos = nil
+local ToggleTargetPlayer = alt:CreateToggle({
+    Name = "Target Player",
+    CurrentValue = false,
+    Flag = "ToggleRestartAlt",
+    Callback = function(Value)
+        isTargetEnabled = Value
+    end,
+})
 
-	local function moveFrame(input)
-		local delta = input.Position - dragStart
-		frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, 
-			startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
-
-	frame.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = frame.Position
-			input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-		end
-	end)
-
-	UIS.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			moveFrame(input)
-		end
-	end)
+local function updatePlayers()
+    local names = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= player then
+            table.insert(names, p.Name)
+        end
+    end
+    DropdownTargetPlayer:Refresh(names, true)
 end
 
-local function makeImageDraggable()
-	local dragging = false
-	local dragStart = nil
-	local startPos = nil
+updatePlayers()
+Players.PlayerAdded:Connect(updatePlayers)
+Players.PlayerRemoving:Connect(function(removedPlayer)
+    updatePlayers()
+    
+    if isTargetEnabled and removedPlayer.Name == targetPlayerName then
+        spawn(function()
+            rejoinSelf()  -- Только ТЫ перезаходишь
+        end)
+    end
+end)
+local HttpService = game:GetService("HttpService")
 
-	local function moveImage(input)
-		local delta = input.Position - dragStart
-		ImageButton.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, 
-			startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-	end
+local configFolder = "workspace\\Rayfield\\Configurations"
 
-	ImageButton.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			dragging = true
-			dragStart = input.Position
-			startPos = ImageButton.Position
-			input.Changed:Connect(function() if input.UserInputState == Enum.UserInputState.End then dragging = false end end)
-		end
-	end)
-
-	UIS.InputChanged:Connect(function(input)
-		if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-			moveImage(input)
-		end
-	end)
+if not isfolder(configFolder) then
+    makefolder(configFolder)
 end
 
-makeFrameDraggable()
-makeImageDraggable()
+local function getConfigFiles()
+    local files = {}
+    if isfolder(configFolder) then
+        for _, path in ipairs(listfiles(configFolder)) do
+            if path:sub(-5) == ".rfld" then
+                local name = path:match("([^/\\]+)%.rfld$") or path
+                table.insert(files, name)
+            end
+        end
+    end
+    table.sort(files)
+    return files
+end
+
+-- Жёстко ищем МАКСИМАЛЬНЫЙ номер среди всех "Preset N"
+local function getNextPresetName()
+    local maxIndex = 0
+    local files = getConfigFiles()
+    for _, name in ipairs(files) do
+        local n = name:match("^Preset (%d+)$")
+        n = tonumber(n)
+        if n and n > maxIndex then
+            maxIndex = n
+        end
+    end
+    return "Preset " .. (maxIndex + 1)
+end
+
+local selectedConfig = nil
+
+local DropdownConfig = config:CreateDropdown({
+    Name = "Select Config",
+    Options = getConfigFiles(),
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Flag = "Config",
+    Callback = function(Options)
+        selectedConfig = Options[1]
+    end,
+})
+
+local ButtonConfigCreate = config:CreateButton({
+    Name = "Create Config",
+    Callback = function()
+        local presetName = getNextPresetName()
+        local filePath = configFolder .. "\\" .. presetName .. ".rfld"
+
+        writefile(filePath, HttpService:JSONEncode({}))
+
+        local opts = getConfigFiles()
+        DropdownConfig:Refresh(opts, true)
+        DropdownConfig:Set({presetName})
+        selectedConfig = presetName
+    end,
+})
+
+local ButtonConfig = config:CreateButton({
+    Name = "Apply Config",
+    Callback = function()
+        if not selectedConfig then return end
+
+        local filePath = configFolder .. "\\" .. selectedConfig .. ".rfld"
+        if not isfile(filePath) then return end
+
+        local content = readfile(filePath)
+        local data = HttpService:JSONDecode(content)
+    end,
+})
