@@ -1,5 +1,6 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
+-- ОКНО + ВСТРОЕННОЕ СОХРАНЕНИЕ RAYFIELD
 local Window = Rayfield:CreateWindow({
     Name = "EzzBss",
     Icon = 0,
@@ -11,9 +12,9 @@ local Window = Rayfield:CreateWindow({
     DisableRayfieldPrompts = true,
     DisableBuildWarnings = false,
     ConfigurationSaving = {
-        Enabled = false,
-        FolderName = "EzzBss",
-        FileName = "Preset 1"
+        Enabled = true,          -- включаем
+        FolderName = "EzzBss",   -- папка Rayfield’а
+        FileName  = "BaseConfig" -- базовый файл
     },
     Discord = {
         Enabled = false,
@@ -47,36 +48,55 @@ local userId = tostring(player.UserId)
 local targetPlayerName = nil
 local isTargetEnabled  = false
 
+local reconnectTime = 0
+local endTime = 0
+local timerRunning = false
+
 local function rejoinSelf()
     TeleportService:Teleport(game.PlaceId, player)
 end
 
-local Slider
-local DropdownTargetPlayer
-local ToggleTargetPlayer
+------------------------------------------------------------------
+-- ЭЛЕМЕНТЫ UI (ВСЕ С УНИКАЛЬНЫМИ ФЛАГАМИ ДЛЯ RAYFIELD)
+------------------------------------------------------------------
 
-Slider = home:CreateSlider({
+local Slider = home:CreateSlider({
     Name = "Restart Time",
     Range = {1, 24},
     Increment = 1,
     Suffix = "Hours",
     CurrentValue = 5,
-    Flag = "RestartTimeSlider",
-    Callback = function(Value) end,
+    Flag = "RestartTimeSlider", -- флаг Rayfield
+    Callback = function(Value)
+        reconnectTime = Value * 3600
+        endTime = os.time() + reconnectTime
+        timerRunning = reconnectTime > 0
+    end,
 })
 
-local reconnectTime = 0
-local endTime = 0
-local timerRunning = false
+local DropdownTargetPlayer = alt:CreateDropdown({
+    Name = "TargetPlayer",
+    Options = {},
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Flag = "PlayerInServer", -- флаг Rayfield
+    Callback = function(Options)
+        targetPlayerName = Options[1]
+    end,
+})
 
-local function restartTimerFromNow()
-    if reconnectTime > 0 then
-        endTime = os.time() + reconnectTime
-        timerRunning = true
-    else
-        timerRunning = false
-    end
-end
+local ToggleTargetPlayer = alt:CreateToggle({
+    Name = "Target Player",
+    CurrentValue = false,
+    Flag = "ToggleRestartAlt", -- флаг Rayfield
+    Callback = function(Value)
+        isTargetEnabled = Value
+    end,
+})
+
+------------------------------------------------------------------
+-- ЛОГИКА ТАЙМЕРА И РЕКОННЕКТА
+------------------------------------------------------------------
 
 task.spawn(function()
     while true do
@@ -102,21 +122,9 @@ end
 
 GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
 
-DropdownTargetPlayer = alt:CreateDropdown({
-    Name = "TargetPlayer",
-    Options = {},
-    CurrentOption = {""},
-    MultipleOptions = false,
-    Flag = "PlayerInServer",
-    Callback = function(Options) end,
-})
-
-ToggleTargetPlayer = alt:CreateToggle({
-    Name = "Target Player",
-    CurrentValue = false,
-    Flag = "ToggleRestartAlt",
-    Callback = function(Value) end,
-})
+------------------------------------------------------------------
+-- ОБНОВЛЕНИЕ ИГРОКОВ
+------------------------------------------------------------------
 
 local function updatePlayers()
     local names = {}
@@ -125,7 +133,9 @@ local function updatePlayers()
             table.insert(names, p.Name)
         end
     end
-    DropdownTargetPlayer:Refresh(names, true)
+    if DropdownTargetPlayer then
+        DropdownTargetPlayer:Refresh(names, true)
+    end
 end
 
 updatePlayers()
@@ -139,7 +149,11 @@ Players.PlayerRemoving:Connect(function(removedPlayer)
     end
 end)
 
-local configFolder = "EzzBss"
+------------------------------------------------------------------
+-- ТВОЯ СИСТЕМА ПРЕСЕТОВ (ОТДЕЛЬНАЯ ПАПКА/ФАЙЛЫ)
+------------------------------------------------------------------
+
+local configFolder = "EzzBssPresets"  -- отдельно от Rayfield
 if not isfolder(configFolder) then
     makefolder(configFolder)
 end
@@ -174,8 +188,22 @@ local selectedConfig = nil
 local DropdownConfig
 
 local lastSliderValue = Slider.CurrentValue or 5
+local lastUsedFile = configFolder .. "/last_used_" .. userId .. ".txt"
 
-local lastUsedFile = configFolder .. "\\last_used_" .. userId .. ".txt"
+local function getCurrentConfigTable()
+    return {
+        RestartTimeSlider = lastSliderValue,
+        PlayerInServer    = {targetPlayerName or ""},
+        ToggleRestartAlt  = isTargetEnabled,
+    }
+end
+
+local function SaveCurrentConfig()
+    if not selectedConfig then return end
+    local filePath = configFolder .. "/" .. selectedConfig .. ".rfld"
+    local data = getCurrentConfigTable()
+    writefile(filePath, HttpService:JSONEncode(data))
+end
 
 local function saveLastUsedPresetName()
     if selectedConfig then
@@ -193,136 +221,29 @@ local function loadLastUsedPresetName()
     return nil
 end
 
-local function getCurrentConfigTable()
-    return {
-        RestartTimeSlider = lastSliderValue,
-        PlayerInServer    = {targetPlayerName or ""},
-        ToggleRestartAlt  = isTargetEnabled,
-    }
-end
-
-function SaveCurrentConfig()
-    if not selectedConfig then return end
-    local filePath = configFolder .. "\\" .. selectedConfig .. ".rfld"
-    local data = getCurrentConfigTable()
-    writefile(filePath, HttpService:JSONEncode(data))
-end
-
-Slider.Callback = function(Value)
-    lastSliderValue = Value
-    reconnectTime = Value * 3600
-    restartTimerFromNow()
-    SaveCurrentConfig()
-end
-
-DropdownTargetPlayer.Callback = function(Options)
-    targetPlayerName = Options[1]
-    SaveCurrentConfig()
-end
-
-ToggleTargetPlayer.Callback = function(Value)
-    isTargetEnabled = Value
-    SaveCurrentConfig()
-end
+------------------------------------------------------------------
+-- UI ДЛЯ ПРЕСЕТОВ
+------------------------------------------------------------------
 
 DropdownConfig = config:CreateDropdown({
     Name = "Select Config",
     Options = getConfigFiles(),
     CurrentOption = {""},
     MultipleOptions = false,
-    Flag = "Config",
+    Flag = "ConfigPresetDropdown", -- отдельный флаг для Rayfield
     Callback = function(Options)
         selectedConfig = Options[1]
         saveLastUsedPresetName()
     end,
 })
 
-local function makeDefaultConfig()
-    return {
-        RestartTimeSlider = 5,
-        PlayerInServer    = {""},
-        ToggleRestartAlt  = false,
-    }
-end
-
-local ButtonConfigCreate = config:CreateButton({
-    Name = "Create Config",
-    Callback = function()
-        local presetName = getNextPresetName()
-        local filePath = configFolder .. "\\" .. presetName .. ".rfld"
-
-        local data = makeDefaultConfig()
-        writefile(filePath, HttpService:JSONEncode(data))
-
-        local opts = getConfigFiles()
-        DropdownConfig:Refresh(opts, true)
-        DropdownConfig:Set({presetName})
-        selectedConfig = presetName
-        saveLastUsedPresetName()
-
-        if Slider and Slider.Set then
-            Slider:Set(data.RestartTimeSlider)
-            lastSliderValue = data.RestartTimeSlider
-        end
-        if DropdownTargetPlayer and DropdownTargetPlayer.Set then
-            DropdownTargetPlayer:Set(data.PlayerInServer)
-            targetPlayerName = data.PlayerInServer[1] or ""
-        end
-        if ToggleTargetPlayer and ToggleTargetPlayer.Set then
-            ToggleTargetPlayer:Set(data.ToggleRestartAlt)
-            isTargetEnabled = data.ToggleRestartAlt
-        end
-
-        SaveCurrentConfig()
-    end,
-})
-
-local ButtonConfig = config:CreateButton({
-    Name = "Apply Config",
-    Callback = function()
-        if not selectedConfig then return end
-
-        local filePath = configFolder .. "\\" .. selectedConfig .. ".rfld"
-        if not isfile(filePath) then return end
-
-        local content = readfile(filePath)
-        local data = HttpService:JSONDecode(content)
-
-        if data.RestartTimeSlider and Slider and Slider.Set then
-            Slider:Set(data.RestartTimeSlider)
-            lastSliderValue = data.RestartTimeSlider
-        end
-
-        if data.PlayerInServer and data.PlayerInServer[1] and DropdownTargetPlayer and DropdownTargetPlayer.Set then
-            DropdownTargetPlayer:Set(data.PlayerInServer)
-            targetPlayerName = data.PlayerInServer[1]
-        end
-
-        if data.ToggleRestartAlt ~= nil and ToggleTargetPlayer and ToggleTargetPlayer.Set then
-            ToggleTargetPlayer:Set(data.ToggleRestartAlt)
-            isTargetEnabled = data.ToggleRestartAlt
-        end
-
-        SaveCurrentConfig()
-    end,
-})
-
-local function applyConfigByName(name)
-    local filePath = configFolder .. "\\" .. name .. ".rfld"
-    if not isfile(filePath) then return end
-
-    selectedConfig = name
-    if DropdownConfig and DropdownConfig.Set then
-        DropdownConfig:Set({name})
-    end
-    saveLastUsedPresetName()
-
-    local content = readfile(filePath)
-    local data = HttpService:JSONDecode(content)
-
+local function applyConfigTable(data)
     if data.RestartTimeSlider and Slider and Slider.Set then
         Slider:Set(data.RestartTimeSlider)
         lastSliderValue = data.RestartTimeSlider
+        reconnectTime = data.RestartTimeSlider * 3600
+        endTime = os.time() + reconnectTime
+        timerRunning = reconnectTime > 0
     end
 
     if data.PlayerInServer and data.PlayerInServer[1] and DropdownTargetPlayer and DropdownTargetPlayer.Set then
@@ -336,26 +257,59 @@ local function applyConfigByName(name)
     end
 end
 
-local function ensureDefaultConfig()
-    local files = getConfigFiles()
-    if #files == 0 then
-        local presetName = "Preset 1"
-        local filePath = configFolder .. "\\" .. presetName .. ".rfld"
-        local data = makeDefaultConfig()
+local function applyConfigByName(name)
+    local filePath = configFolder .. "/" .. name .. ".rfld"
+    if not isfile(filePath) then return end
+
+    selectedConfig = name
+    if DropdownConfig and DropdownConfig.Set then
+        DropdownConfig:Set({name})
+    end
+    saveLastUsedPresetName()
+
+    local content = readfile(filePath)
+    local data = HttpService:JSONDecode(content)
+    applyConfigTable(data)
+end
+
+local ButtonConfigCreate = config:CreateButton({
+    Name = "Create Config",
+    Callback = function()
+        local presetName = getNextPresetName()
+        local filePath = configFolder .. "/" .. presetName .. ".rfld"
+
+        local data = {
+            RestartTimeSlider = 5,
+            PlayerInServer    = {""},
+            ToggleRestartAlt  = false,
+        }
+
         writefile(filePath, HttpService:JSONEncode(data))
 
         local opts = getConfigFiles()
-        DropdownConfig:Refresh(opts, true)
-        DropdownConfig:Set({presetName})
+        if DropdownConfig then
+            DropdownConfig:Refresh(opts, true)
+            DropdownConfig:Set({presetName})
+        end
         selectedConfig = presetName
         saveLastUsedPresetName()
-        applyConfigByName(presetName)
-    else
-        DropdownConfig:Refresh(files, true)
-    end
-end
+        applyConfigTable(data)
+        SaveCurrentConfig()
+    end,
+})
 
-ensureDefaultConfig()
+local ButtonConfigApply = config:CreateButton({
+    Name = "Apply Config",
+    Callback = function()
+        if not selectedConfig then return end
+        applyConfigByName(selectedConfig)
+        SaveCurrentConfig()
+    end,
+})
+
+------------------------------------------------------------------
+-- АВТОЗАГРУЗКА ПОСЛЕДНЕГО ПРЕСЕТА
+------------------------------------------------------------------
 
 local filesNow = getConfigFiles()
 local lastName = loadLastUsedPresetName()
@@ -370,9 +324,10 @@ if lastName then
     end
     if exists then
         applyConfigByName(lastName)
-    else
-        applyConfigByName("Preset 1")
+    elseif #filesNow > 0 then
+        applyConfigByName(filesNow[1])
     end
-else
-    applyConfigByName("Preset 1")
 end
+
+------------------------------------------------------------------
+-- ЗАГРУЗКА БАЗОВОЙ КОНФИГУРАЦИИ RAYF
