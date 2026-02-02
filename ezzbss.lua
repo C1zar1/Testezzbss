@@ -104,9 +104,13 @@ local function restartTimerFromNow()
     if reconnectTime > 0 then
         endTime = os.time() + reconnectTime
         timerRunning = true
-        print("[Timer] Started! Will restart in " .. reconnectTime .. " seconds (" .. (reconnectTime/3600) .. " hours)")
+        local hours = reconnectTime / 3600
+        print("=== TIMER START ===")
+        print("[Timer] Started for " .. hours .. " hours")
         print("[Timer] Current time:", os.time())
         print("[Timer] End time:", endTime)
+        print("[Timer] Reconnect time:", reconnectTime)
+        print("===================")
     else
         timerRunning = false
         print("[Timer] Stopped (reconnectTime is 0)")
@@ -114,44 +118,63 @@ local function restartTimerFromNow()
 end
 
 local function adjustTimer(newValue)
+    print("\n=== ADJUST TIMER CALLED ===")
+    print("[Timer] Previous slider value:", previousSliderValue)
+    print("[Timer] New slider value:", newValue)
+    print("[Timer] Timer running:", timerRunning)
+    
     if timerRunning then
         local now = os.time()
         local remainingSeconds = endTime - now
         
-        -- Вычисляем разницу между новым и старым значением (в секундах)
+        print("[Timer] Current time:", now)
+        print("[Timer] End time:", endTime)
+        print("[Timer] Remaining seconds BEFORE:", remainingSeconds)
+        
+        -- Разница в секундах
         local difference = (newValue - previousSliderValue) * 3600
+        print("[Timer] Difference (seconds):", difference)
+        print("[Timer] Difference (hours):", difference / 3600)
         
-        print(string.format("[Timer] Old value: %d hours, New value: %d hours, Difference: %d seconds", 
-            previousSliderValue, newValue, difference))
-        
-        -- Добавляем/вычитаем разницу к оставшемуся времени
+        -- Новое оставшееся время
         local newRemainingSeconds = remainingSeconds + difference
+        print("[Timer] New remaining seconds:", newRemainingSeconds)
         
-        -- Проверяем, чтобы не было отрицательного времени
         if newRemainingSeconds < 0 then
+            print("[Timer] WARNING: Negative time detected, setting to 0")
             newRemainingSeconds = 0
         end
         
-        -- Устанавливаем новое время окончания
+        -- Обновляем время окончания
         endTime = now + newRemainingSeconds
         reconnectTime = newValue * 3600
         
         local hours = math.floor(newRemainingSeconds / 3600)
         local minutes = math.floor((newRemainingSeconds % 3600) / 60)
-        print(string.format("[Timer] Adjusted! Time left: %d hours %d minutes", hours, minutes))
+        print("[Timer] NEW TIME LEFT: " .. hours .. " hours " .. minutes .. " minutes")
+        print("[Timer] New end time:", endTime)
+        print("===========================\n")
     else
-        -- Если таймер не запущен, просто запускаем его
+        print("[Timer] Timer not running, starting fresh")
         reconnectTime = newValue * 3600
         restartTimerFromNow()
     end
     
     previousSliderValue = newValue
+    print("[Timer] Previous value updated to:", previousSliderValue)
 end
 
--- Создаем кнопку заранее
+-- Создаем кнопку
 local timeleft = home:CreateButton({
     Name = "Time left: Calculating...",
     Callback = function()
+        print("\n=== TIME INFO ===")
+        print("Timer running:", timerRunning)
+        print("Current time:", os.time())
+        print("End time:", endTime)
+        print("Reconnect time:", reconnectTime)
+        print("Previous slider value:", previousSliderValue)
+        
         if timerRunning then
             local now = os.time()
             local remaining = endTime - now
@@ -159,13 +182,16 @@ local timeleft = home:CreateButton({
                 local hours = math.floor(remaining / 3600)
                 local minutes = math.floor((remaining % 3600) / 60)
                 local seconds = remaining % 60
-                print(string.format("[Timer] Exact time left: %d hours, %d minutes, %d seconds", hours, minutes, seconds))
+                print(string.format("Exact time left: %dh %dm %ds", hours, minutes, seconds))
+            else
+                print("Time is up!")
             end
         end
+        print("=================\n")
     end,
 })
 
--- Основной таймер с обновлением кнопки
+-- Основной таймер
 task.spawn(function()
     while true do
         task.wait(1)
@@ -173,7 +199,6 @@ task.spawn(function()
             local now = os.time()
             local remaining = endTime - now
             
-            -- Обновляем текст кнопки
             if remaining > 0 then
                 local hours = math.floor(remaining / 3600)
                 local minutes = math.floor((remaining % 3600) / 60)
@@ -193,9 +218,8 @@ task.spawn(function()
                     end
                 end
                 
-                -- Логи каждую минуту
                 if remaining % 60 == 0 then
-                    print(string.format("[Timer] Time left: %d hours %d minutes", hours, minutes))
+                    print(string.format("[Timer] %d hours %d minutes left", hours, minutes))
                 end
             else
                 timeleft:Set("Time left: Restarting...")
@@ -212,7 +236,7 @@ task.spawn(function()
     end
 end)
 
--- Автореконнект при ошибках/кике
+-- Автореконнект при ошибках
 local function onErrorMessageChanged(errorMessage)
     if errorMessage and errorMessage ~= "" then
         print("[Auto-Reconnect] Error detected: " .. errorMessage)
@@ -226,17 +250,22 @@ end
 
 GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
 
--- ВАЖНО: Обновляем callback слайдера с adjustTimer
+-- CALLBACK СЛАЙДЕРА
 Slider.Callback = function(Value)
+    print("\n>>> SLIDER MOVED TO:", Value, "<<<")
     lastSliderValue = Value
-    adjustTimer(Value) -- ВОТ ЭТО ВАЖНО!
+    adjustTimer(Value)
     SaveCurrentConfig()
 end
 
--- Запускаем таймер при старте
+-- ЗАПУСК ПРИ СТАРТЕ
+print("\n=== INITIAL SETUP ===")
+print("Starting with slider value:", Slider.CurrentValue)
 previousSliderValue = Slider.CurrentValue
 reconnectTime = Slider.CurrentValue * 3600
+print("Initial reconnect time:", reconnectTime)
 restartTimerFromNow()
+print("=====================\n")
 
 DropdownTargetPlayer = alt:CreateDropdown({
     Name = "TargetPlayer",
