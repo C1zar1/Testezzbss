@@ -139,7 +139,7 @@ Players.PlayerRemoving:Connect(function(removedPlayer)
     end
 end)
 
-local configFolder = "workspace\EzzBss"
+local configFolder = "workspace\\EzzBss"
 
 pcall(function()
     if not isfolder(configFolder) then
