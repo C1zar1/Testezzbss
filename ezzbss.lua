@@ -118,13 +118,21 @@ local function adjustTimer(newValue)
         local now = os.time()
         local remainingSeconds = endTime - now
         
+        -- Вычисляем разницу между новым и старым значением (в секундах)
         local difference = (newValue - previousSliderValue) * 3600
+        
+        print(string.format("[Timer] Old value: %d hours, New value: %d hours, Difference: %d seconds", 
+            previousSliderValue, newValue, difference))
+        
+        -- Добавляем/вычитаем разницу к оставшемуся времени
         local newRemainingSeconds = remainingSeconds + difference
         
+        -- Проверяем, чтобы не было отрицательного времени
         if newRemainingSeconds < 0 then
             newRemainingSeconds = 0
         end
         
+        -- Устанавливаем новое время окончания
         endTime = now + newRemainingSeconds
         reconnectTime = newValue * 3600
         
@@ -132,6 +140,7 @@ local function adjustTimer(newValue)
         local minutes = math.floor((newRemainingSeconds % 3600) / 60)
         print(string.format("[Timer] Adjusted! Time left: %d hours %d minutes", hours, minutes))
     else
+        -- Если таймер не запущен, просто запускаем его
         reconnectTime = newValue * 3600
         restartTimerFromNow()
     end
@@ -143,7 +152,6 @@ end
 local timeleft = home:CreateButton({
     Name = "Time left: Calculating...",
     Callback = function()
-        -- Можно добавить действие при клике, например показать точное время
         if timerRunning then
             local now = os.time()
             local remaining = endTime - now
@@ -171,14 +179,12 @@ task.spawn(function()
                 local minutes = math.floor((remaining % 3600) / 60)
                 
                 if hours >= 1 then
-                    -- Показываем часы если >= 1 часа
                     if minutes > 0 then
                         timeleft:Set("Time left: " .. hours .. "h " .. minutes .. "m")
                     else
                         timeleft:Set("Time left: " .. hours .. "h")
                     end
                 else
-                    -- Показываем только минуты если < 1 часа
                     if minutes > 0 then
                         timeleft:Set("Time left: " .. minutes .. "m")
                     else
@@ -220,10 +226,10 @@ end
 
 GuiService.ErrorMessageChanged:Connect(onErrorMessageChanged)
 
--- Обновляем callback слайдера
+-- ВАЖНО: Обновляем callback слайдера с adjustTimer
 Slider.Callback = function(Value)
     lastSliderValue = Value
-    adjustTimer(Value)
+    adjustTimer(Value) -- ВОТ ЭТО ВАЖНО!
     SaveCurrentConfig()
 end
 
